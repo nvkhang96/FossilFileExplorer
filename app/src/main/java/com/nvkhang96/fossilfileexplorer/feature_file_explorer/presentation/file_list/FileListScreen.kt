@@ -1,6 +1,7 @@
 package com.nvkhang96.fossilfileexplorer.feature_file_explorer.presentation.file_list
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
@@ -142,7 +144,11 @@ fun FileListScreen(
                 is FileListUiEvent.FileClick -> {
                     val filePath = event.file.path ?: return@collectLatest
                     val file = File(filePath)
-                    file.openWithSomeApp(context)
+                    try {
+                        file.openWithSomeApp(context)
+                    } catch (e: ActivityNotFoundException) {
+                        Toast.makeText(context, "Not found support apps", Toast.LENGTH_SHORT).show()
+                    }
                 }
                 is FileListUiEvent.OpenFolderSuccess -> {
                     lifecycleOwner.lifecycleScope.launch {
@@ -257,7 +263,7 @@ fun FileListScreen(
                 TextButton(
                     onClick = { isOrderDropdownExpanded = true },
                     colors = ButtonDefaults.buttonColors(
-                        contentColor = Color.Black,
+                        contentColor = MaterialTheme.colors.onSurface,
                         backgroundColor = Color.Transparent,
                     )
                 ) {
@@ -286,7 +292,7 @@ fun FileListScreen(
                                     Text(
                                         text = label,
                                         color = if (label == state.order.label) MaterialTheme.colors.primary
-                                        else Color.Black
+                                        else MaterialTheme.colors.onSurface
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     if (label == state.order.label) {

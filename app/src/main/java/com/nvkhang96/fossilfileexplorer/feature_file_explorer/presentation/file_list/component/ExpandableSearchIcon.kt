@@ -47,7 +47,8 @@ fun ExpandableSearchIcon(
                 IconButton(onClick = onLeadingIconClick) {
                     Icon(
                         imageVector = Icons.Default.ArrowBackIos,
-                        contentDescription = "Back"
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colors.onSurface
                     )
                 }
             },

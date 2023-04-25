@@ -19,7 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.model.FileFolder
-import com.nvkhang96.fossilfileexplorer.feature_file_explorer.presentation.util.DateUtils
+import com.nvkhang96.fossilfileexplorer.core.util.DateUtils
 
 @Composable
 fun FileFolderItem(

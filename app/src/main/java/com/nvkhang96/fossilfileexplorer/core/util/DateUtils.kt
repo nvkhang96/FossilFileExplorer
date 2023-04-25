@@ -1,4 +1,4 @@
-package com.nvkhang96.fossilfileexplorer.feature_file_explorer.presentation.util
+package com.nvkhang96.fossilfileexplorer.core.util
 
 import android.text.format.DateFormat
 import java.util.*

@@ -4,8 +4,8 @@ import com.nvkhang96.fossilfileexplorer.feature_file_explorer.data.local.file_fo
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.data.local.file_folder_provider.FileFolderProviderImpl
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.data.repository.FileFolderRepositoryImpl
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.repository.FileFolderRepository
-import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.use_case.FileFolderUseCases
-import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.use_case.GetFileFolder
+import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.use_case.GetFileFolderUseCase
+import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.use_case.GetFileFolderUseCaseImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -30,9 +30,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFileFolderUseCases(repository: FileFolderRepository): FileFolderUseCases {
-        return FileFolderUseCases(
-            getFileFolder = GetFileFolder(repository)
-        )
+    fun provideGetFileFolderUseCase(repository: FileFolderRepository): GetFileFolderUseCase {
+        return GetFileFolderUseCaseImpl(repository)
     }
 }

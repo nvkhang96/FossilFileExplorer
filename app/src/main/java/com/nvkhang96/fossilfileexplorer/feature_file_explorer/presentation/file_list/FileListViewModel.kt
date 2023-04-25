@@ -6,7 +6,7 @@ import com.nvkhang96.fossilfileexplorer.core.presentation.util.INSTANT_SEARCH_DE
 import com.nvkhang96.fossilfileexplorer.core.presentation.util.UiEvent
 import com.nvkhang96.fossilfileexplorer.core.util.Resource
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.model.FileFolder
-import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.use_case.FileFolderUseCases
+import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.use_case.GetFileFolderUseCase
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.util.FileFolderOrder
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.util.OrderType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,7 +18,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class FileListViewModel @Inject constructor(
-    private val fileFolderUseCases: FileFolderUseCases
+    private val getFileFolderUseCase: GetFileFolderUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(FileListState())
@@ -176,8 +176,7 @@ class FileListViewModel @Inject constructor(
         query: String = "",
     ) {
         _getFileFolderJob?.cancel()
-        _getFileFolderJob = fileFolderUseCases
-            .getFileFolder(path, order, query)
+        _getFileFolderJob = getFileFolderUseCase(path, order, query)
             .onEach { result ->
                 when (result) {
                     is Resource.Success -> {

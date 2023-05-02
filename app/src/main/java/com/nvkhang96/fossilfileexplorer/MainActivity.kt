@@ -3,12 +3,10 @@ package com.nvkhang96.fossilfileexplorer
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -36,7 +34,17 @@ class MainActivity : ComponentActivity() {
                         startDestination = Screen.FileListScreen.route,
                     ) {
                         composable(route = Screen.FileListScreen.route) {
-                            FileListScreen(navController = navController)
+                            val viewModel = hiltViewModel<FileListViewModel>()
+                            val state by viewModel.state.collectAsState()
+                            val searchQuery by viewModel.searchQuery.collectAsState()
+
+                            FileListScreen(
+                                state = state,
+                                searchQuery = searchQuery,
+                                onIntent = viewModel::onIntent,
+                                uiEventFlow = viewModel.eventFlow,
+                                fileListUiEventFlow = viewModel.fileListEvent
+                            )
                         }
                     }
                 }

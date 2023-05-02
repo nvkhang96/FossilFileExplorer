@@ -11,4 +11,5 @@ data class FileListState (
     val order: FileFolderOrder = FileFolderOrder.Name(OrderType.Ascending),
     val isSearchExpanded: Boolean = false,
     val isLoading: Boolean = false,
+    val paths: List<Pair<String, String>> = emptyList()
 )

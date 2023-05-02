@@ -7,6 +7,7 @@ import com.nvkhang96.fossilfileexplorer.core.presentation.util.UiEvent
 import com.nvkhang96.fossilfileexplorer.core.util.Resource
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.model.FileFolder
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.use_case.GetFileFolderUseCase
+import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.use_case.GetPathListUseCase
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.util.FileFolderOrder
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.util.OrderType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,7 +19,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class FileListViewModel @Inject constructor(
-    private val getFileFolderUseCase: GetFileFolderUseCase
+    private val getFileFolderUseCase: GetFileFolderUseCase,
+    private val getPathListUseCase: GetPathListUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(FileListState())
@@ -33,38 +35,22 @@ class FileListViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
 
-    val paths: StateFlow<List<Pair<String, String>>> = _state.map { state ->
-        state.folder.path?.let {path ->
-            path
-                .drop(_rootPath.length)
-                .split("/")
-                .filter { it.isNotBlank() }
-                .runningFold(Pair("Internal storage", _rootPath)) { acc, s ->
-                    Pair(s, "${acc.second}/$s")
-                }
-        }?: emptyList()
-    }.stateIn(
-        scope = viewModelScope,
-        initialValue = emptyList(),
-        started = SharingStarted.WhileSubscribed(5000)
-    )
-
     private var _rootPath = ""
 
     private var _getFileFolderJob: Job? = null
     private var _searchJob: Job? = null
 
-    fun onEvent(event: FileListEvent) {
+    fun onIntent(event: FileListIntent) {
         when (event) {
-            is FileListEvent.InitRoot -> {
+            is FileListIntent.InitRoot -> {
                 _state.value = state.value.copy(permissionDialogQueue = emptyList())
                 if (_rootPath.isNotEmpty()) return
 
                 _rootPath = event.rootPath
                 val rootFileFolder = FileFolder(path = event.rootPath)
-                onEvent(FileListEvent.ItemClick(rootFileFolder))
+                onIntent(FileListIntent.ItemClick(rootFileFolder))
             }
-            is FileListEvent.ItemClick -> {
+            is FileListIntent.ItemClick -> {
                 _state.value = state.value.copy(isSearchExpanded = false)
                 _searchQuery.value = ""
 
@@ -80,7 +66,7 @@ class FileListViewModel @Inject constructor(
                     }
                 }
             }
-            is FileListEvent.OnBackPressed -> {
+            is FileListIntent.OnBackPressed -> {
                 state.value.folder.parentPath?.let { parentPath ->
                     when {
                         state.value.isSearchExpanded -> {
@@ -96,12 +82,12 @@ class FileListViewModel @Inject constructor(
                             }
                         }
                         else -> {
-                            onEvent(FileListEvent.ItemClick(FileFolder(path = parentPath)))
+                            onIntent(FileListIntent.ItemClick(FileFolder(path = parentPath)))
                         }
                     }
                 }
             }
-            is FileListEvent.DismissPermissionDialog -> {
+            is FileListIntent.DismissPermissionDialog -> {
                 if (state.value.permissionDialogQueue.isEmpty()) return
                 val copyQueue = ArrayList(state.value.permissionDialogQueue)
                 copyQueue.removeFirst()
@@ -110,7 +96,7 @@ class FileListViewModel @Inject constructor(
                     permissionDialogQueue = copyQueue
                 )
             }
-            is FileListEvent.PermissionResult -> {
+            is FileListIntent.PermissionResult -> {
                 if (!event.isGranted && !state.value.permissionDialogQueue.contains(event.permission)) {
                     val copyQueue = ArrayList(state.value.permissionDialogQueue)
                     copyQueue.add(event.permission)
@@ -120,7 +106,7 @@ class FileListViewModel @Inject constructor(
                     )
                 }
             }
-            is FileListEvent.Order -> {
+            is FileListIntent.Order -> {
                 if (state.value.order::class == event.order::class
                     && state.value.order.orderType == event.order.orderType
                 ) {
@@ -129,9 +115,9 @@ class FileListViewModel @Inject constructor(
                 _state.value = state.value.copy(
                     order = event.order
                 )
-                onEvent(FileListEvent.ItemClick(state.value.folder))
+                onIntent(FileListIntent.ItemClick(state.value.folder))
             }
-            is FileListEvent.ToggleAscDesc -> {
+            is FileListIntent.ToggleAscDesc -> {
                 _state.value = state.value.copy(
                     order = state.value.order.copy(
                         if (state.value.order.orderType is OrderType.Ascending)
@@ -140,12 +126,12 @@ class FileListViewModel @Inject constructor(
                             OrderType.Ascending
                     )
                 )
-                onEvent(FileListEvent.ItemClick(state.value.folder))
+                onIntent(FileListIntent.ItemClick(state.value.folder))
             }
-            is FileListEvent.ToggleSearch -> {
+            is FileListIntent.ToggleSearch -> {
                 _state.value = state.value.copy(isSearchExpanded = !state.value.isSearchExpanded)
             }
-            is FileListEvent.Search -> {
+            is FileListIntent.Search -> {
                 _searchQuery.value = event.query
                 state.value.folder.path?.let { path ->
                     searchFileFolder(
@@ -181,10 +167,14 @@ class FileListViewModel @Inject constructor(
                 when (result) {
                     is Resource.Success -> {
                         result.data?.let { newFileFolder ->
+                            val pathList = newFileFolder.path?.let {
+                                getPathListUseCase.invoke(it, _rootPath)
+                            } ?: emptyList()
                             _state.value = state.value.copy(
                                 folder = newFileFolder,
                                 isRoot = newFileFolder.path == _rootPath,
-                                isLoading = false
+                                isLoading = false,
+                                paths = pathList
                             )
                             _fileListEvent.emit(FileListUiEvent.OpenFolderSuccess)
                         }

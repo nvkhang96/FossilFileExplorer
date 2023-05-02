@@ -33,12 +33,10 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
-import androidx.navigation.NavController
 import com.nvkhang96.fossilfileexplorer.BuildConfig
 import com.nvkhang96.fossilfileexplorer.core.presentation.BackPressHandler
 import com.nvkhang96.fossilfileexplorer.core.presentation.ManageAllFilesPermissionTextProvider
@@ -56,6 +54,7 @@ import com.nvkhang96.fossilfileexplorer.feature_file_explorer.presentation.file_
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.presentation.file_list.component.FileListPath
 import com.nvkhang96.fossilfileexplorer.feature_file_explorer.presentation.util.getImageVector
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.File
@@ -64,16 +63,16 @@ import kotlin.system.exitProcess
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun FileListScreen(
-    navController: NavController,
-    viewModel: FileListViewModel = hiltViewModel(),
-    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
+    state: FileListState,
+    searchQuery: String,
+    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
+    onIntent: (FileListIntent) -> Unit,
+    uiEventFlow: SharedFlow<UiEvent>,
+    fileListUiEventFlow: SharedFlow<FileListUiEvent>
 ) {
-    val state by viewModel.state.collectAsState()
-    val paths by viewModel.paths.collectAsState()
     var isOrderDropdownExpanded by rememberSaveable {
         mutableStateOf(false)
     }
-    val searchQuery by viewModel.searchQuery.collectAsState()
     val focusRequester = remember { FocusRequester() }
     val pathListState = rememberLazyListState()
 
@@ -98,30 +97,30 @@ fun FileListScreen(
         var areGranted = true
         permissionsMap.forEach { (permission, isGranted) ->
             areGranted = areGranted && isGranted
-            viewModel.onEvent(FileListEvent.PermissionResult(permission, isGranted))
+            onIntent(FileListIntent.PermissionResult(permission, isGranted))
         }
 
         if (areGranted) {
-            viewModel.onEvent(FileListEvent.InitRoot(rootPath))
+            onIntent(FileListIntent.InitRoot(rootPath))
         }
     }
 
     val requestManageAllFilesPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
-        viewModel.onEvent(FileListEvent.DismissPermissionDialog)
+        onIntent(FileListIntent.DismissPermissionDialog)
 
         if (isStoragePermissionGranted(context)) {
-            viewModel.onEvent(FileListEvent.InitRoot(rootPath))
+            onIntent(FileListIntent.InitRoot(rootPath))
         } else {
-            viewModel.onEvent(
-                FileListEvent.PermissionResult(storagePermissions.first(), isGranted = false)
+            onIntent(
+                FileListIntent.PermissionResult(storagePermissions.first(), isGranted = false)
             )
         }
     }
 
     LaunchedEffect(key1 = true) {
-        viewModel.eventFlow.collectLatest { event ->
+        uiEventFlow.collectLatest { event ->
             when (event) {
                 is UiEvent.ShowSnackbar -> {
                     scaffoldState.snackbarHostState.showSnackbar(
@@ -134,12 +133,13 @@ fun FileListScreen(
                         exitProcess(0)
                     }
                 }
+                else -> {}
             }
         }
     }
 
     LaunchedEffect(key1 = true) {
-        viewModel.fileListEvent.collectLatest { event ->
+        fileListUiEventFlow.collectLatest { event ->
             when (event) {
                 is FileListUiEvent.FileClick -> {
                     val filePath = event.file.path ?: return@collectLatest
@@ -154,7 +154,9 @@ fun FileListScreen(
                     lifecycleOwner.lifecycleScope.launch {
                         delay(MIN_MILLIS_HUMAN_CAN_RECOGNIZE_60_HZ)
                         coroutineScope.launch {
-                            pathListState.animateScrollToItem(paths.size - 1)
+                            pathListState.animateScrollToItem(
+                                (state.paths.size - 1).coerceAtLeast(0)
+                            )
                         }
                     }
                 }
@@ -163,7 +165,7 @@ fun FileListScreen(
     }
 
     BackPressHandler {
-        viewModel.onEvent(FileListEvent.OnBackPressed)
+        onIntent(FileListIntent.OnBackPressed)
     }
 
     Scaffold(
@@ -177,7 +179,7 @@ fun FileListScreen(
                 navigationIcon = if (!state.isRoot && !state.isSearchExpanded) {
                     {
                         IconButton(
-                            onClick = { viewModel.onEvent(FileListEvent.OnBackPressed) },
+                            onClick = { onIntent(FileListIntent.OnBackPressed) },
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBackIos,
@@ -192,16 +194,16 @@ fun FileListScreen(
                         isSearchExpanded = state.isSearchExpanded,
                         searchQuery = searchQuery,
                         onValueChange = { query ->
-                            viewModel.onEvent(FileListEvent.Search(query))
+                            onIntent(FileListIntent.Search(query))
                         },
                         onToggleSearch = {
-                            viewModel.onEvent(FileListEvent.ToggleSearch)
+                            onIntent(FileListIntent.ToggleSearch)
                         },
                         lifecycleOwner = lifecycleOwner,
                         focusRequester = focusRequester,
                         keyboardController = keyboardController,
                         onLeadingIconClick = {
-                            viewModel.onEvent(FileListEvent.OnBackPressed)
+                            onIntent(FileListIntent.OnBackPressed)
                         }
                     )
                     IconButton(onClick = {}) {
@@ -225,10 +227,10 @@ fun FileListScreen(
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_START) {
                         if (isStoragePermissionGranted(context)) {
-                            viewModel.onEvent(FileListEvent.InitRoot(rootPath))
+                            onIntent(FileListIntent.InitRoot(rootPath))
                         } else {
-                            viewModel.onEvent(
-                                FileListEvent.PermissionResult(
+                            onIntent(
+                                FileListIntent.PermissionResult(
                                     storagePermissions.first(),
                                     false
                                 )
@@ -246,9 +248,9 @@ fun FileListScreen(
 
             FileListPath(
                 modifier = Modifier,
-                paths = paths,
+                paths = state.paths,
                 onClick = { path ->
-                    viewModel.onEvent(FileListEvent.ItemClick(FileFolder(path = path)))
+                    onIntent(FileListIntent.ItemClick(FileFolder(path = path)))
                 },
                 state = pathListState
             )
@@ -275,8 +277,8 @@ fun FileListScreen(
                     ) {
                         FileFolderOrder.labels.forEach { label ->
                             DropdownMenuItem(onClick = {
-                                viewModel.onEvent(
-                                    FileListEvent.Order(
+                                onIntent(
+                                    FileListIntent.Order(
                                         when (label) {
                                             FileFolderOrder.NAME -> FileFolderOrder.Name(state.order.orderType)
                                             FileFolderOrder.DATE -> FileFolderOrder.Date(state.order.orderType)
@@ -308,7 +310,7 @@ fun FileListScreen(
                     }
                 }
 
-                IconButton(onClick = { viewModel.onEvent(FileListEvent.ToggleAscDesc) }) {
+                IconButton(onClick = { onIntent(FileListIntent.ToggleAscDesc) }) {
                     Icon(
                         imageVector = state.order.orderType.getImageVector(),
                         contentDescription = "OrderType"
@@ -327,7 +329,7 @@ fun FileListScreen(
                         FileFolderItem(
                             fileFolder = fileFolder,
                             modifier = Modifier
-                                .clickable { viewModel.onEvent(FileListEvent.ItemClick(fileFolder)) }
+                                .clickable { onIntent(FileListIntent.ItemClick(fileFolder)) }
                         )
                     }
                 }
@@ -359,12 +361,15 @@ fun FileListScreen(
                             )
                 },
                 onDismiss = {
-                    viewModel.onEvent(FileListEvent.DismissPermissionDialog)
+                    onIntent(FileListIntent.DismissPermissionDialog)
                     if (isStoragePermissionGranted(context)) {
-                        viewModel.onEvent(FileListEvent.InitRoot(rootPath))
+                        onIntent(FileListIntent.InitRoot(rootPath))
                     } else {
-                        viewModel.onEvent(
-                            FileListEvent.PermissionResult(storagePermissions.first(), isGranted = false)
+                        onIntent(
+                            FileListIntent.PermissionResult(
+                                storagePermissions.first(),
+                                isGranted = false
+                            )
                         )
                     }
                 },

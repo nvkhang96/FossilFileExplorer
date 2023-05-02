@@ -176,7 +176,9 @@ class FileListViewModel @Inject constructor(
                                 isLoading = false,
                                 paths = pathList
                             )
-                            _fileListEvent.emit(FileListUiEvent.OpenFolderSuccess)
+                            _fileListEvent.emit(
+                                FileListUiEvent.OpenFolderSuccess(newFileFolder.path?.length ?: 0)
+                            )
                         }
                     }
                     is Resource.Error -> {

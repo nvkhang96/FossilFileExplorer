@@ -4,5 +4,5 @@ import com.nvkhang96.fossilfileexplorer.feature_file_explorer.domain.model.FileF
 
 sealed class FileListUiEvent {
     data class FileClick(val file: FileFolder): FileListUiEvent()
-    object OpenFolderSuccess: FileListUiEvent()
+    data class OpenFolderSuccess(val pathSize: Int): FileListUiEvent()
 }

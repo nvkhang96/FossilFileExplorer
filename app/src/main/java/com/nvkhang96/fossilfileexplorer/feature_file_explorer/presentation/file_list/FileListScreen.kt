@@ -155,7 +155,7 @@ fun FileListScreen(
                         delay(MIN_MILLIS_HUMAN_CAN_RECOGNIZE_60_HZ)
                         coroutineScope.launch {
                             pathListState.animateScrollToItem(
-                                (state.paths.size - 1).coerceAtLeast(0)
+                                (event.pathSize - 1).coerceAtLeast(0)
                             )
                         }
                     }
